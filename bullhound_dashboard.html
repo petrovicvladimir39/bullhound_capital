@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GP Bullhound Capital — Portfolio Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #090A0C;
+  --surface: #111318;
+  --surface2: #181C24;
+  --surface3: #1E222D;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --amber: #C8A84B;
+  --amber-l: #E2C97E;
+  --amber-dim: rgba(200,168,75,0.14);
+  --amber-glow: rgba(200,168,75,0.06);
+  --green: #3BAF72;
+  --red: #D95656;
+  --blue: #4A8FD4;
+  --text: #DDD8CE;
+  --text-mid: #9A9590;
+  --text-dim: #5A5650;
+  --nav-h: 48px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-weight:300;min-height:100vh;overflow-x:hidden;}
+
+/* grain */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9998;opacity:0.5;}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:500;height:var(--nav-h);background:rgba(9,10,12,0.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:0;}
+.nav-brand{display:flex;align-items:center;gap:10px;padding-right:28px;border-right:1px solid var(--border);margin-right:28px;}
+.nav-bull{width:22px;height:22px;}
+.nav-name{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.2em;color:var(--amber);text-transform:uppercase;white-space:nowrap;}
+.nav-links{display:flex;gap:0;flex:1;}
+.nav-link{padding:0 16px;height:var(--nav-h);display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-decoration:none;white-space:nowrap;}
+.nav-link:hover{color:var(--text-mid);}
+.nav-link.active{color:var(--amber);border-bottom-color:var(--amber);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.nav-time{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);}
+.live{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:.15em;}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s ease infinite;}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(59,175,114,.5);}50%{opacity:.6;box-shadow:0 0 0 4px rgba(59,175,114,0);}}
+
+/* ── LAYOUT ── */
+.page{display:none;padding-top:var(--nav-h);}
+.page.active{display:block;}
+.wrap{max-width:1360px;margin:0 auto;padding:36px 36px 80px;position:relative;z-index:1;}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+.fade-1{animation:fadeUp .5s .0s ease both;}
+.fade-2{animation:fadeUp .5s .1s ease both;}
+.fade-3{animation:fadeUp .5s .18s ease both;}
+.fade-4{animation:fadeUp .5s .26s ease both;}
+.fade-5{animation:fadeUp .5s .34s ease both;}
+
+/* ── SECTION HEADER ── */
+.s-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;}
+.s-title{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,3.5vw,46px);font-weight:400;letter-spacing:-.02em;line-height:1.1;color:var(--text);}
+.s-title em{font-style:italic;color:var(--amber);}
+.s-sub{margin-top:8px;font-size:13px;color:var(--text-mid);line-height:1.65;max-width:560px;}
+
+/* ── DIVIDER ── */
+.divider{height:1px;background:var(--border);margin:28px 0;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:3px;transition:border-color .2s;}
+.card:hover{border-color:var(--border2);}
+.card-head{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.card-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-mid);}
+.card-body{padding:16px 18px;}
+
+/* ── TAGS ── */
+.tag{font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:.1em;flex-shrink:0;}
+.tag-amber{background:var(--amber-dim);border:1px solid rgba(200,168,75,.28);color:var(--amber);}
+.tag-green{background:rgba(59,175,114,.1);border:1px solid rgba(59,175,114,.25);color:var(--green);}
+.tag-red{background:rgba(217,86,86,.1);border:1px solid rgba(217,86,86,.25);color:var(--red);}
+.tag-blue{background:rgba(74,143,212,.1);border:1px solid rgba(74,143,212,.25);color:var(--blue);}
+
+/* ── KPI ── */
+.kpi-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:500;color:var(--text);letter-spacing:-.02em;margin-bottom:4px;}
+.kpi-delta{font-family:'IBM Plex Mono',monospace;font-size:10px;}
+.kpi-delta.up{color:var(--green);}
+.kpi-delta.down{color:var(--red);}
+.kpi-delta.neu{color:var(--text-dim);}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.g6{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+.g-7-5{display:grid;grid-template-columns:7fr 5fr;gap:14px;}
+.g-5-7{display:grid;grid-template-columns:5fr 7fr;gap:14px;}
+
+/* ── TABLES ── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--text-dim);padding:0 10px 10px;text-align:right;font-weight:400;border-bottom:1px solid var(--border);}
+.tbl th:first-child{text-align:left;}
+.tbl td{padding:9px 10px;font-size:12px;color:var(--text-mid);border-bottom:1px solid rgba(255,255,255,0.025);text-align:right;font-family:'IBM Plex Mono',monospace;}
+.tbl td:first-child{text-align:left;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--text);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.018);}
+.val-up{color:var(--green)!important;}
+.val-dn{color:var(--red)!important;}
+
+/* ── CHIPS ── */
+.chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:.07em;}
+.chip-soft{background:rgba(74,143,212,.1);border:1px solid rgba(74,143,212,.2);color:var(--blue);}
+.chip-fin{background:rgba(59,175,114,.1);border:1px solid rgba(59,175,114,.2);color:var(--green);}
+.chip-deep{background:rgba(200,168,75,.1);border:1px solid rgba(200,168,75,.2);color:var(--amber);}
+.chip-dual{background:rgba(217,86,86,.1);border:1px solid rgba(217,86,86,.2);color:var(--red);}
+.chip-q{background:rgba(120,90,180,.12);border:1px solid rgba(120,90,180,.25);color:#a070e0;}
+.chip-edtech{background:rgba(74,180,200,.1);border:1px solid rgba(74,180,200,.2);color:#4ab4c8;}
+
+/* ── PROGRESS BAR ── */
+.pbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px;}
+.pfill{height:100%;border-radius:2px;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── HOME: HERO ── */
+.hero{padding:72px 0 60px;border-bottom:1px solid var(--border);}
+.hero-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.35em;color:var(--amber);text-transform:uppercase;margin-bottom:20px;}
+.hero-title{font-family:'Cormorant Garamond',serif;font-size:clamp(40px,6vw,74px);font-weight:400;letter-spacing:-.025em;line-height:.95;color:var(--text);}
+.hero-title em{font-style:italic;color:var(--amber);}
+.hero-desc{margin-top:18px;font-size:14px;color:var(--text-mid);max-width:580px;line-height:1.7;}
+.hero-bar{margin-top:36px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;}
+.hero-stat{display:flex;flex-direction:column;gap:4px;}
+.hero-stat-val{font-family:'Cormorant Garamond',serif;font-size:32px;color:var(--text);letter-spacing:-.02em;}
+.hero-stat-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.2em;}
+.hero-sep{width:1px;height:40px;background:var(--border);}
+.hero-cta{margin-left:auto;display:flex;gap:10px;}
+.btn{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:10px 20px;border-radius:2px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;border:none;}
+.btn-primary{background:var(--amber);color:var(--bg);}
+.btn-primary:hover{background:var(--amber-l);}
+.btn-ghost{background:transparent;color:var(--text-mid);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--amber);color:var(--amber);}
+
+/* ── FUND STRIP ── */
+.fund-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:32px 0;}
+.fund-card{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.fund-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border);}
+.fund-card.f3::before{background:var(--blue);}
+.fund-card.f4::before{background:var(--amber);}
+.fund-card.f5::before{background:var(--green);}
+.fund-card.f6::before{background:linear-gradient(90deg,var(--amber),var(--green));}
+.fund-card.active,.fund-card:hover{border-color:var(--border2);background:var(--surface2);}
+.fund-card-name{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}
+.fund-card-vintage{font-size:11px;color:var(--text-mid);margin-bottom:10px;}
+.fund-card-size{font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--text);letter-spacing:-.01em;margin-bottom:6px;}
+.fund-card-status{font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 7px;border-radius:2px;display:inline-block;}
+
+/* ── HOME PORTFOLIO SNAP ── */
+.portfolio-snap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.snap-co{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:14px 16px;transition:border-color .2s;cursor:default;}
+.snap-co:hover{border-color:var(--border2);}
+.snap-name{font-size:13.5px;color:var(--text);font-weight:400;margin-bottom:4px;}
+.snap-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-mid);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.snap-bar-row{display:flex;align-items:center;gap:8px;}
+.snap-bar-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);width:55px;flex-shrink:0;}
+.snap-bar-wrap{flex:1;height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+.snap-bar-fill{height:100%;border-radius:2px;}
+.snap-val{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-mid);margin-left:6px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1000px){.g6,.g4{grid-template-columns:repeat(3,1fr);}  .g-7-5,.g-5-7{grid-template-columns:1fr;}.fund-strip{grid-template-columns:repeat(2,1fr);}.portfolio-snap{grid-template-columns:1fr 1fr;}}
+@media(max-width:700px){.g2,.g3{grid-template-columns:1fr;}.fund-strip{grid-template-columns:1fr;}.portfolio-snap{grid-template-columns:1fr;}.nav-links .nav-link{padding:0 10px;font-size:9.5px;}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <svg class="nav-bull" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3C10 3 8 4 7 5.5C6 7 6 9 7 10L4 13L6 14L8 12C9 13 10.5 14 12 14C13.5 14 15 13 16 12L18 14L20 13L17 10C18 9 18 7 17 5.5C16 4 14 3 12 3Z" fill="#C8A84B" opacity=".9"/>
+      <circle cx="10" cy="7" r="1" fill="#090A0C"/>
+      <circle cx="14" cy="7" r="1" fill="#090A0C"/>
+      <path d="M9 10.5C9 10.5 10.5 12 12 12C13.5 12 15 10.5 15 10.5" stroke="#090A0C" stroke-width="1" stroke-linecap="round"/>
+    </svg>
+    <span class="nav-name">Bullhound Capital</span>
+  </div>
+  <div class="nav-links">
+    <a class="nav-link active" onclick="showPage('home')">Home</a>
+    <a class="nav-link" onclick="showPage('funds')">Funds</a>
+    <a class="nav-link" onclick="showPage('companies')">Companies</a>
+    <a class="nav-link" onclick="showPage('investors')">Investors</a>
+    <a class="nav-link" onclick="showPage('research')">Research</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-time" id="clock"></span>
+    <div class="live"><div class="live-dot"></div>Live</div>
+  </div>
+</nav>
+
+<!-- ══════════════════════ HOME ══════════════════════ -->
+<div class="page active" id="page-home">
+<div class="wrap">
+
+  <div class="hero fade-1">
+    <div class="hero-meta">Portfolio Analytics · Q4 2024 · Illustrative</div>
+    <h1 class="hero-title">GP Bullhound<br><em>Capital</em></h1>
+    <p class="hero-desc">Institutional-grade portfolio analytics across €1B+ AUM — tracking performance, valuation, attribution and investor returns across Funds III–VI.</p>
+    <div class="hero-bar">
+      <div class="hero-stat"><div class="hero-stat-val">€1B+</div><div class="hero-stat-label">AUM</div></div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat"><div class="hero-stat-val">25yr</div><div class="hero-stat-label">Track Record</div></div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat"><div class="hero-stat-val">4</div><div class="hero-stat-label">Active Funds</div></div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat"><div class="hero-stat-val">13</div><div class="hero-stat-label">Global Offices</div></div>
+      <div class="hero-sep"></div>
+      <div class="hero-stat"><div class="hero-stat-val">7</div><div class="hero-stat-label">Sectors</div></div>
+      <div class="hero-cta">
+        <button class="btn btn-primary" onclick="showPage('funds')">View Funds →</button>
+        <button class="btn btn-ghost" onclick="showPage('companies')">Companies</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="g6 fade-2" style="margin-top:28px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">Total NAV</span><span class="tag tag-amber">Est.</span></div>
+      <div class="card-body"><div class="kpi-val">€842M</div><div class="kpi-delta up">↑ 14% YoY</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Avg. Net IRR</span></div>
+      <div class="card-body"><div class="kpi-val">18.4%</div><div class="kpi-delta up">Top Quartile</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Avg. TVPI</span></div>
+      <div class="card-body"><div class="kpi-val">2.3×</div><div class="kpi-delta up">↑ 0.2× QoQ</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Avg. DPI</span></div>
+      <div class="card-body"><div class="kpi-val">0.84×</div><div class="kpi-delta neu">Funds III–VI</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Portfolio Cos.</span></div>
+      <div class="card-body"><div class="kpi-val">32</div><div class="kpi-delta neu">Active + Exited</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Total Deployed</span></div>
+      <div class="card-body"><div class="kpi-val">€1.1B</div><div class="kpi-delta neu">Since 2008</div></div>
+    </div>
+  </div>
+
+  <!-- Fund Strip -->
+  <div style="margin-top:32px;" class="fade-3">
+    <div class="s-eyebrow">Fund Overview</div>
+    <div class="fund-strip">
+      <div class="fund-card f3" onclick="showPage('funds')">
+        <div class="fund-card-name">Sidecar III</div>
+        <div class="fund-card-vintage">2013 Vintage · Closed</div>
+        <div class="fund-card-size">~€150M</div>
+        <span class="fund-card-status tag tag-green">Largely Exited</span>
+      </div>
+      <div class="fund-card f4" onclick="showPage('funds')">
+        <div class="fund-card-name">Fund IV</div>
+        <div class="fund-card-vintage">2018 Vintage · Closed</div>
+        <div class="fund-card-size">~€220M</div>
+        <span class="fund-card-status tag tag-amber">Maturing</span>
+      </div>
+      <div class="fund-card f5" onclick="showPage('funds')">
+        <div class="fund-card-name">Fund V</div>
+        <div class="fund-card-vintage">2020 Vintage · Closed</div>
+        <div class="fund-card-size">€353M</div>
+        <span class="fund-card-status tag tag-amber">Active</span>
+      </div>
+      <div class="fund-card f6 active" onclick="showPage('funds')">
+        <div class="fund-card-name">Fund VI</div>
+        <div class="fund-card-vintage">2022 Vintage · Closed</div>
+        <div class="fund-card-size">$431M</div>
+        <span class="fund-card-status tag tag-green">Deploying</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portfolio Snapshot + NAV Chart -->
+  <div class="g-7-5 fade-4" style="margin-top:28px;">
+    <!-- Chart -->
+    <div class="card">
+      <div class="card-head"><span class="card-label">NAV & Total Value — All Funds (€M)</span><span class="tag tag-amber">Illustrative</span></div>
+      <div class="card-body"><canvas id="navChart" height="180"></canvas></div>
+    </div>
+    <!-- Sector exposure -->
+    <div class="card">
+      <div class="card-head"><span class="card-label">NAV by Sector (%)</span></div>
+      <div class="card-body"><canvas id="sectorPie" height="180"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Fund VI Portfolio snapshot -->
+  <div class="fade-5" style="margin-top:28px;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;">
+      <div><div class="s-eyebrow">Fund VI · Active Portfolio</div><div class="s-title" style="font-size:22px;">Portfolio <em>Snapshot</em></div></div>
+      <button class="btn btn-ghost" onclick="showPage('companies')">View All →</button>
+    </div>
+    <div class="portfolio-snap" id="portfolio-snap"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════ FUNDS PAGE ══════════════════════ -->
+<div class="page" id="page-funds">
+<div class="wrap">
+  <div class="fade-1" style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="s-eyebrow">Fund Analytics</div>
+      <div class="s-title">Fund <em>Performance</em></div>
+      <div class="s-sub">IRR, multiples, capital flows and attribution across all GP Bullhound funds.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;" id="fund-tabs"></div>
+  </div>
+
+  <!-- Fund KPI row -->
+  <div class="g6 fade-2" id="fund-kpis"></div>
+
+  <!-- J-Curve + Attribution -->
+  <div class="g-7-5 fade-3" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">J-Curve — Cumulative Capital Flow & Value</span><span class="tag tag-amber">Quarterly</span></div>
+      <div class="card-body"><canvas id="jcurveChart" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Capital Deployed by Sector</span></div>
+      <div class="card-body"><canvas id="sectorBar" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Attribution 2x2 -->
+  <div class="g2 fade-4" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">Capital Deployed by Geography (€M)</span></div>
+      <div class="card-body"><canvas id="geoBar" height="160"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Value Created by Sector (MOIC Contribution)</span></div>
+      <div class="card-body"><canvas id="valueBar" height="160"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Cash Flow table -->
+  <div class="card fade-5" style="margin-top:14px;">
+    <div class="card-head"><span class="card-label">Fund Cash Flow Summary</span><span class="tag tag-amber">Q4 2024</span></div>
+    <div class="card-body" style="padding:0 0 4px;">
+      <table class="tbl" id="cashflow-tbl"></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════ COMPANIES PAGE ══════════════════════ -->
+<div class="page" id="page-companies">
+<div class="wrap">
+  <div class="fade-1" style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="s-eyebrow">Portfolio Companies</div>
+      <div class="s-title">Company <em>Analytics</em></div>
+      <div class="s-sub">Performance, valuation and exit scenario modelling across Fund VI portfolio.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">Filter:</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="co-filters"></div>
+    </div>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div style="display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;" class="fade-2">
+    <div class="nav-link active" id="co-tab-overview" onclick="showCoTab('overview')" style="height:38px;">Overview</div>
+    <div class="nav-link" id="co-tab-performance" onclick="showCoTab('performance')" style="height:38px;">Performance</div>
+    <div class="nav-link" id="co-tab-exit" onclick="showCoTab('exit')" style="height:38px;">Exit Scenarios</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="co-overview" class="fade-3">
+    <div id="co-cards-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"></div>
+    <!-- Value creation waterfall -->
+    <div class="card" style="margin-top:14px;" id="waterfall-panel">
+      <div class="card-head"><span class="card-label">Value Creation Waterfall — Fund VI</span><span class="tag tag-amber">Cumulative</span></div>
+      <div class="card-body"><canvas id="waterfallChart" height="160"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PERFORMANCE -->
+  <div id="co-performance" style="display:none;">
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="perf-co-selector"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-head"><span class="card-label">ARR Growth (€M)</span><span class="tag tag-green">LTM</span></div>
+        <div class="card-body"><canvas id="arrChart" height="180"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-label">EV / ARR Multiple</span></div>
+        <div class="card-body"><canvas id="evArrChart" height="180"></canvas></div>
+      </div>
+    </div>
+    <div class="g4" style="margin-top:12px;" id="perf-kpis"></div>
+  </div>
+
+  <!-- EXIT SCENARIOS -->
+  <div id="co-exit" style="display:none;">
+    <div class="g4 fade-3" id="exit-controls" style="margin-bottom:16px;"></div>
+    <div class="g6" id="exit-kpis" style="margin-bottom:14px;"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-head"><span class="card-label">Exit Value by Scenario (€M)</span></div>
+        <div class="card-body"><canvas id="exitValChart" height="180"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-label">Exit MOIC by Multiple Shift</span></div>
+        <div class="card-body"><canvas id="exitMoicChart" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════ INVESTORS PAGE ══════════════════════ -->
+<div class="page" id="page-investors">
+<div class="wrap">
+  <div class="fade-1" style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="s-eyebrow">LP Analytics</div>
+      <div class="s-title">Investor <em>Dashboard</em></div>
+      <div class="s-sub">Capital calls, distributions, NAV and returns from each LP's perspective across all funds.</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="lp-selector"></div>
+  </div>
+
+  <div class="g6 fade-2" id="lp-kpis"></div>
+
+  <div class="g-7-5 fade-3" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">Capital Calls vs. Distributions (€M) — Quarterly</span><span class="tag tag-amber">Cumulative</span></div>
+      <div class="card-body"><canvas id="lpCashChart" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">NAV Bridge — Current Period (€M)</span></div>
+      <div class="card-body"><canvas id="navBridgeChart" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card fade-4" style="margin-top:14px;">
+    <div class="card-head">
+      <span class="card-label">LP Commitment Schedule</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);">Last Updated: Q4 2024</span>
+        <span class="tag tag-amber">Next Report: Q1 2025</span>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0 0 4px;">
+      <table class="tbl" id="lp-tbl"></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════ RESEARCH PAGE ══════════════════════ -->
+<div class="page" id="page-research">
+<div class="wrap">
+  <div class="fade-1" style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="s-eyebrow">Market Intelligence</div>
+      <div class="s-title">Research & <em>Signals</em></div>
+      <div class="s-sub">Live market context, sector benchmarks, exit signals and AI-assisted portfolio narrative.</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="research-filters"></div>
+  </div>
+
+  <!-- Alert strip -->
+  <div style="display:flex;gap:8px;margin-bottom:22px;overflow-x:auto;padding-bottom:2px;" class="fade-2" id="alert-strip"></div>
+
+  <!-- Macro KPIs -->
+  <div class="g6 fade-2" id="macro-kpis"></div>
+
+  <!-- Main charts -->
+  <div class="g-7-5 fade-3" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">EV/ARR — Portfolio vs. Public Comps (Quarterly)</span><span class="tag tag-green">Live</span></div>
+      <div class="card-body"><canvas id="evArrResChart" height="190"></canvas></div>
+    </div>
+    <div class="card" style="border-color:rgba(74,143,212,.2);">
+      <div class="card-head"><span class="card-label">AI Portfolio Narrative — Q4 2024</span><span class="tag tag-blue">AI</span></div>
+      <div class="card-body">
+        <p id="ai-narrative" style="font-family:'Cormorant Garamond',serif;font-size:14.5px;font-style:italic;line-height:1.85;color:var(--text-mid);transition:opacity .25s;"></p>
+        <div style="margin-top:14px;display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="regenNarrative()" style="font-size:9px;padding:7px 14px;">↻ Regenerate</button>
+          <button class="btn btn-ghost" style="font-size:9px;padding:7px 14px;border-color:rgba(200,168,75,.3);color:var(--amber);">Export Draft</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2 fade-4" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">Sector Trend Heatmap — ARR Growth YoY (%)</span><span class="tag tag-amber">Q4 2024</span></div>
+      <div class="card-body" style="padding:12px 18px;" id="heatmap-panel"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Public Market Comparables</span><span class="tag tag-green">Live</span></div>
+      <div class="card-body" style="padding:0 0 4px;"><table class="tbl" id="comps-tbl"></table></div>
+    </div>
+  </div>
+
+  <div class="g2 fade-5" style="margin-top:14px;">
+    <div class="card">
+      <div class="card-head"><span class="card-label">Exit Pipeline Monitor</span><span class="tag tag-amber">Signal</span></div>
+      <div class="card-body" id="exit-pipeline"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-label">Monitoring Alerts Feed</span><span class="tag tag-green">Live</span></div>
+      <div class="card-body" id="alerts-feed"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  GLOBALS
+// ══════════════════════════════════════════════
+Chart.defaults.color = '#5A5650';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+const C = { amber:'#C8A84B', amberL:'#E2C97E', green:'#3BAF72', red:'#D95656', blue:'#4A8FD4', grid:'rgba(255,255,255,0.05)', bg:'#090A0C' };
+let charts = {};
+
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ══════════════════════════════════════════════
+//  NAV & CLOCK
+// ══════════════════════════════════════════════
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' · ' +
+    n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+tick(); setInterval(tick, 30000);
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  document.querySelector(`.nav-link[onclick="showPage('${id}')"]`).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='home') initHome();
+  if(id==='funds') initFunds();
+  if(id==='companies') initCompanies();
+  if(id==='investors') initInvestors();
+  if(id==='research') initResearch();
+}
+
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
+const FUNDS = {
+  III:  { name:'Sidecar III', vintage:2013, size:'~€150M', status:'Largely Exited', nav:'€38M',  irr:'22.1%', tvpi:'3.1×', dpi:'2.8×', commitment:'€148M', paidIn:'€148M', distributed:'€415M', dryPowder:'€2M', cls:'tag-green' },
+  IV:   { name:'Fund IV',     vintage:2018, size:'~€220M', status:'Maturing',       nav:'€198M', irr:'19.4%', tvpi:'2.4×', dpi:'0.6×', commitment:'€218M', paidIn:'€205M', distributed:'€122M', dryPowder:'€13M', cls:'tag-amber' },
+  V:    { name:'Fund V',      vintage:2020, size:'€353M',  status:'Active',         nav:'€312M', irr:'17.8%', tvpi:'2.1×', dpi:'0.3×', commitment:'€353M', paidIn:'€298M', distributed:'€89M',  dryPowder:'€55M', cls:'tag-amber' },
+  VI:   { name:'Fund VI',     vintage:2022, size:'$431M',  status:'Deploying',      nav:'€294M', irr:'14.2%', tvpi:'1.6×', dpi:'0.1×', commitment:'€400M', paidIn:'€210M', distributed:'€21M',  dryPowder:'€190M', cls:'tag-green' },
+};
+
+const COMPANIES = [
+  { name:'Q-CTRL',              fund:'VI', sector:'Quantum',  geo:'Global',    theme:'Deep Tech',    stage:'Series B', invested:113, moic:1.8, nav:203, arr:28,  arrYoy:62, ev_arr:7.2, entryVal:62,  opPerf:18, reRate:123, exitReady:55 },
+  { name:'Mentimeter',          fund:'VI', sector:'Software', geo:'Nordics',   theme:'Business Sw.', stage:'Secondary',invested:17,  moic:2.1, nav:36,  arr:42,  arrYoy:31, ev_arr:8.6, entryVal:17,  opPerf:8,  reRate:11,  exitReady:68 },
+  { name:'EcoVadis',            fund:'VI', sector:'Software', geo:'France',    theme:'ESG Tech',     stage:'Growth',   invested:45,  moic:2.4, nav:108, arr:95,  arrYoy:28, ev_arr:11.3,entryVal:45,  opPerf:22, reRate:41,  exitReady:72 },
+  { name:'Sanity',              fund:'VI', sector:'Software', geo:'USA',       theme:'Dev Tools',    stage:'Series C', invested:85,  moic:1.3, nav:110, arr:31,  arrYoy:44, ev_arr:3.5, entryVal:85,  opPerf:6,  reRate:19,  exitReady:41 },
+  { name:'LeoLabs',             fund:'VI', sector:'Space',    geo:'USA',       theme:'Space Tech',   stage:'Series B', invested:30,  moic:1.5, nav:45,  arr:18,  arrYoy:55, ev_arr:2.5, entryVal:30,  opPerf:5,  reRate:10,  exitReady:38 },
+  { name:'Multiverse Computing',fund:'VI', sector:'Quantum',  geo:'Europe',    theme:'Deep Tech',    stage:'Series B', invested:189, moic:1.2, nav:227, arr:12,  arrYoy:88, ev_arr:18.9,entryVal:189, opPerf:4,  reRate:34,  exitReady:28 },
+  { name:'CoverManager',        fund:'VI', sector:'Software', geo:'S. Europe', theme:'Hospitality',  stage:'Growth',   invested:12,  moic:2.8, nav:34,  arr:14,  arrYoy:38, ev_arr:2.4, entryVal:12,  opPerf:9,  reRate:13,  exitReady:78 },
+  { name:'Sesame HR',           fund:'VI', sector:'Software', geo:'S. Europe', theme:'HR Tech',      stage:'Growth',   invested:18,  moic:1.9, nav:34,  arr:22,  arrYoy:41, ev_arr:1.5, entryVal:18,  opPerf:7,  reRate:9,   exitReady:58 },
+  { name:'Quantum Systems',     fund:'VI', sector:'Dual-Use', geo:'Germany',   theme:'Robotics',     stage:'Series C', invested:20,  moic:1.6, nav:32,  arr:38,  arrYoy:100,ev_arr:0.8, entryVal:20,  opPerf:5,  reRate:7,   exitReady:44 },
+  { name:'Headway',             fund:'VI', sector:'EdTech',   geo:'Ukraine',   theme:'Consumer',     stage:'Growth',   invested:22,  moic:1.1, nav:24,  arr:19,  arrYoy:48, ev_arr:1.3, entryVal:22,  opPerf:1,  reRate:1,   exitReady:22 },
+  // Fund V highlights
+  { name:'ConnexAI',            fund:'V',  sector:'Software', geo:'UK',        theme:'AI/CX',        stage:'Growth',   invested:35,  moic:2.6, nav:91,  arr:48,  arrYoy:35, ev_arr:1.9, entryVal:35,  opPerf:18, reRate:38,  exitReady:81 },
+  { name:'Vivino',              fund:'V',  sector:'Software', geo:'USA',       theme:'Consumer',     stage:'Later Stg',invested:28,  moic:1.8, nav:50,  arr:62,  arrYoy:18, ev_arr:0.8, entryVal:28,  opPerf:12, reRate:10,  exitReady:70 },
+  // Fund IV highlights
+  { name:'Slack',               fund:'IV', sector:'Software', geo:'USA',       theme:'Business Sw.', stage:'Exited',   invested:15,  moic:8.2, nav:0,   arr:0,   arrYoy:0,  ev_arr:0,   entryVal:15,  opPerf:48, reRate:60,  exitReady:100 },
+  { name:'Revolut',             fund:'IV', sector:'Fintech',  geo:'UK',        theme:'Fintech',      stage:'Current',  invested:25,  moic:4.1, nav:102, arr:0,   arrYoy:0,  ev_arr:0,   entryVal:25,  opPerf:38, reRate:39,  exitReady:88 },
+];
+
+const LPS = [
+  { name:'European Investment Fund', type:'Institutional', commitment:280, paidIn:195, distributed:42,  nav:248, dpi:'0.22×', tvpi:'1.49×', irr:'14.8%', funds:['V','VI'] },
+  { name:'Nordic Family Office',     type:'Family Office', commitment:85,  paidIn:72,  distributed:28,  nav:89,  dpi:'0.39×', tvpi:'1.63×', irr:'17.2%', funds:['IV','V'] },
+  { name:'Swiss Pension Fund',       type:'Pension',       commitment:120, paidIn:118, distributed:88,  nav:142, dpi:'0.75×', tvpi:'1.95×', irr:'19.1%', funds:['III','IV'] },
+  { name:'Endowment Capital',        type:'Endowment',     commitment:60,  paidIn:58,  distributed:8,   nav:64,  dpi:'0.14×', tvpi:'1.24×', irr:'11.6%', funds:['VI'] },
+  { name:'GP Co-Invest',             type:'Co-Invest',     commitment:40,  paidIn:38,  distributed:62,  nav:22,  dpi:'1.63×', tvpi:'2.21×', irr:'24.3%', funds:['III','IV'] },
+];
+
+// ══════════════════════════════════════════════
+//  HOME
+// ══════════════════════════════════════════════
+let homeInited = false;
+function initHome() {
+  if(homeInited) return; homeInited = true;
+
+  // NAV chart
+  destroyChart('navChart');
+  const ctx = document.getElementById('navChart').getContext('2d');
+  charts.navChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['2018','2019','2020','2021','2022','2023','2024'],
+      datasets:[
+        {label:'NAV (€M)',data:[120,165,210,380,520,680,842],backgroundColor:'rgba(200,168,75,.25)',borderColor:C.amber,borderWidth:1.5,yAxisID:'y'},
+        {label:'Distributions (€M)',data:[0,8,22,65,148,248,310],type:'line',borderColor:C.green,backgroundColor:'rgba(59,175,114,.08)',borderWidth:2,pointRadius:3,fill:true,tension:.4,yAxisID:'y'}
+      ]
+    },
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:14,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{color:'#5A5650',callback:v=>v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  // Sector pie
+  destroyChart('sectorPie');
+  const ctx2 = document.getElementById('sectorPie').getContext('2d');
+  charts.sectorPie = new Chart(ctx2, {
+    type:'doughnut',
+    data:{
+      labels:['Business Software','Quantum','Space/Dual-Use','Fintech','EdTech','Other'],
+      datasets:[{data:[38,22,15,12,8,5],backgroundColor:['rgba(200,168,75,.7)','rgba(120,90,180,.7)','rgba(74,143,212,.7)','rgba(59,175,114,.7)','rgba(74,180,200,.7)','rgba(90,90,100,.5)'],borderColor:C.bg,borderWidth:2,hoverOffset:6}]
+    },
+    options:{responsive:true,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:10,color:'#9A9590',font:{size:10}}}}}
+  });
+
+  // Portfolio snap
+  const snap = document.getElementById('portfolio-snap');
+  snap.innerHTML = COMPANIES.filter(c=>c.fund==='VI').slice(0,9).map(c=>`
+    <div class="snap-co">
+      <div class="snap-name">${c.name}</div>
+      <div class="snap-meta">
+        <span>${c.sector}</span><span>${c.geo}</span><span>${c.stage}</span>
+      </div>
+      <div class="snap-bar-row"><span class="snap-bar-label">MOIC</span><div class="snap-bar-wrap"><div class="snap-bar-fill" style="width:${Math.min(c.moic/4*100,100)}%;background:${c.moic>=2?C.green:c.moic>=1.5?C.amber:C.blue};"></div></div><span class="snap-val">${c.moic}×</span></div>
+      <div class="snap-bar-row" style="margin-top:4px;"><span class="snap-bar-label">ARR YoY</span><div class="snap-bar-wrap"><div class="snap-bar-fill" style="width:${Math.min(c.arrYoy,100)}%;background:${C.blue};"></div></div><span class="snap-val">+${c.arrYoy}%</span></div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  FUNDS
+// ══════════════════════════════════════════════
+let activeFund = 'VI';
+function initFunds() {
+  buildFundTabs();
+  renderFund(activeFund);
+}
+
+function buildFundTabs() {
+  const el = document.getElementById('fund-tabs');
+  el.innerHTML = Object.keys(FUNDS).map(k=>`<button class="btn ${activeFund===k?'btn-primary':'btn-ghost'}" onclick="selectFund('${k}')" style="font-size:9px;padding:7px 14px;">${FUNDS[k].name}</button>`).join('');
+}
+
+function selectFund(id) {
+  activeFund = id;
+  buildFundTabs();
+  renderFund(id);
+}
+
+function renderFund(id) {
+  const f = FUNDS[id];
+  // KPIs
+  document.getElementById('fund-kpis').innerHTML = [
+    { label:'Net IRR', val:f.irr, delta:'', cls:'' },
+    { label:'TVPI', val:f.tvpi, delta:'', cls:'' },
+    { label:'DPI', val:f.dpi, delta:'', cls:'' },
+    { label:'NAV', val:f.nav, delta:'', cls:'' },
+    { label:'Paid-In', val:f.paidIn, delta:'', cls:'' },
+    { label:'Dry Powder', val:f.dryPowder, delta:'', cls:'' },
+  ].map(k=>`<div class="card"><div class="card-head"><span class="card-label">${k.label}</span></div><div class="card-body"><div class="kpi-val">${k.val}</div></div></div>`).join('');
+
+  // J-Curve
+  destroyChart('jcurveChart');
+  const jData = {
+    III:  { labels:['2013','2014','2015','2016','2017','2018','2019','2020'], calls:[-30,-60,-90,-110,-135,-148,-148,-148], nav:[28,55,95,145,195,230,285,310], dist:[0,0,5,18,45,120,280,415] },
+    IV:   { labels:['2018','2019','2020','2021','2022','2023','2024'], calls:[-45,-90,-145,-180,-200,-205,-205], nav:[40,85,148,230,290,315,350], dist:[0,0,0,12,38,88,122] },
+    V:    { labels:['2020','2021','2022','2023','2024'], calls:[-70,-150,-230,-285,-298], nav:[65,148,245,295,312], dist:[0,0,0,15,89] },
+    VI:   { labels:['2022','2023','2024'], calls:[-80,-155,-210], nav:[72,145,294], dist:[0,0,21] },
+  }[id];
+  const jCtx = document.getElementById('jcurveChart').getContext('2d');
+  charts.jcurveChart = new Chart(jCtx, {
+    type:'line',
+    data:{labels:jData.labels,datasets:[
+      {label:'Capital Called',data:jData.calls,borderColor:C.red,backgroundColor:'rgba(217,86,86,.08)',borderWidth:1.5,tension:.4,fill:true,pointRadius:3},
+      {label:'NAV',data:jData.nav,borderColor:C.amber,backgroundColor:'rgba(200,168,75,.08)',borderWidth:2,tension:.4,fill:false,pointRadius:3},
+      {label:'Distributions',data:jData.dist,borderColor:C.green,backgroundColor:'transparent',borderWidth:1.5,tension:.4,borderDash:[4,3],pointRadius:2},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{color:'#5A5650',callback:v=>v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  // Sector bar
+  destroyChart('sectorBar');
+  const sbCtx = document.getElementById('sectorBar').getContext('2d');
+  const sbData = {
+    III: { labels:['Consumer','Software','Fintech'],data:[55,62,31] },
+    IV:  { labels:['Software','Fintech','Consumer'],data:[88,72,45] },
+    V:   { labels:['Software','AI/CX','Consumer','Other'],data:[128,85,62,23] },
+    VI:  { labels:['Software','Quantum','Space','EdTech','Dual-Use'],data:[172,302,48,22,20] },
+  }[id];
+  charts.sectorBar = new Chart(sbCtx, {
+    type:'bar',data:{labels:sbData.labels,datasets:[{label:'€M',data:sbData.data,backgroundColor:C.amber+'AA',borderColor:C.amber,borderWidth:1.5,borderRadius:2}]},
+    options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:C.grid}},y:{grid:{color:C.grid}}}}
+  });
+
+  // Geo bar
+  destroyChart('geoBar');
+  const gbCtx = document.getElementById('geoBar').getContext('2d');
+  charts.geoBar = new Chart(gbCtx, {
+    type:'bar',
+    data:{labels:['UK/Ireland','Nordics','USA','S. Europe','DACH','Global'],
+      datasets:[{label:'€M',data:[id==='VI'?17:55, id==='VI'?17:42, id==='VI'?215:48, id==='VI'?50:22, id==='VI'?20:18, id==='VI'?113:30],backgroundColor:C.blue+'99',borderColor:C.blue,borderWidth:1.5,borderRadius:2}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:C.grid}},y:{grid:{color:C.grid},ticks:{callback:v=>v+'M'}}}}
+  });
+
+  // Value bar
+  destroyChart('valueBar');
+  const vbCtx = document.getElementById('valueBar').getContext('2d');
+  charts.valueBar = new Chart(vbCtx, {
+    type:'bar',
+    data:{labels:['Software','Quantum','Space/Dual-Use','Fintech','EdTech'],
+      datasets:[
+        {label:'Entry Value',data:[138,189,30,25,22],backgroundColor:'rgba(200,168,75,.3)',borderColor:C.amber,borderWidth:1,stack:'s'},
+        {label:'Op. Performance',data:[62,9,5,38,1],backgroundColor:'rgba(59,175,114,.3)',borderColor:C.green,borderWidth:1,stack:'s'},
+        {label:'Multiple Re-rating',data:[93,43,7,39,1],backgroundColor:'rgba(74,143,212,.3)',borderColor:C.blue,borderWidth:1,stack:'s'},
+      ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:10,color:'#5A5650'}}},
+      scales:{x:{grid:{color:C.grid},stacked:true},y:{grid:{color:C.grid},stacked:true,ticks:{callback:v=>v+'M'}}}}
+  });
+
+  // Cash flow table
+  document.getElementById('cashflow-tbl').innerHTML = `
+    <thead><tr><th>Fund</th><th>Commitment</th><th>Paid-In</th><th>Distributed</th><th>NAV</th><th>DPI</th><th>TVPI</th><th>Status</th></tr></thead>
+    <tbody>${Object.entries(FUNDS).map(([k,v])=>`<tr><td>${v.name}</td><td>${v.commitment}</td><td>${v.paidIn}</td><td>${v.distributed}</td><td>${v.nav}</td><td>${v.dpi}</td><td class="val-up">${v.tvpi}</td><td><span class="tag ${v.cls}" style="font-size:8px;">${v.status}</span></td></tr>`).join('')}</tbody>`;
+}
+
+// ══════════════════════════════════════════════
+//  COMPANIES
+// ══════════════════════════════════════════════
+let activeCoFilter = 'VI';
+let activePerf = 'Q-CTRL';
+let activeCoTab = 'overview';
+let exitMultShift = 0;
+let exitScenario = 'Base';
+let exitCo = 'EcoVadis';
+
+function initCompanies() {
+  // Filters
+  const filters = document.getElementById('co-filters');
+  filters.innerHTML = ['VI','V','IV','All'].map(f=>`<button class="btn ${activeCoFilter===f?'btn-primary':'btn-ghost'}" onclick="filterCo('${f}')" style="font-size:9px;padding:6px 12px;">${f==='All'?'All Funds':'Fund '+f}</button>`).join('');
+
+  if(activeCoTab==='overview') renderCoOverview();
+  else if(activeCoTab==='performance') renderCoPerformance();
+  else renderCoExit();
+}
+
+function filterCo(f) {
+  activeCoFilter = f;
+  initCompanies();
+}
+
+function showCoTab(tab) {
+  activeCoTab = tab;
+  ['overview','performance','exit'].forEach(t=>{
+    document.getElementById('co-'+t).style.display = t===tab?'block':'none';
+    document.getElementById('co-tab-'+t).classList.toggle('active', t===tab);
+  });
+  if(tab==='overview') renderCoOverview();
+  else if(tab==='performance') renderCoPerformance();
+  else renderCoExit();
+}
+
+function renderCoOverview() {
+  const cos = COMPANIES.filter(c=>activeCoFilter==='All'||c.fund===activeCoFilter);
+  document.getElementById('co-cards-grid').innerHTML = cos.map(c=>`
+    <div class="card" style="padding:14px 16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px;">
+        <div>
+          <div style="font-size:13.5px;color:var(--text);margin-bottom:3px;">${c.name}</div>
+          <div style="font-size:11px;color:var(--text-dim);">${c.geo} · Fund ${c.fund}</div>
+        </div>
+        <span class="chip chip-${c.sector==='Software'?'soft':c.sector==='Fintech'?'fin':c.sector==='Quantum'||c.sector==='Deep Tech'?'q':c.sector==='Dual-Use'?'dual':c.sector==='EdTech'?'edtech':'deep'}">${c.sector}</span>
+      </div>
+      <div class="g2" style="gap:8px;margin-bottom:10px;">
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:3px;">Invested</div><div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--text);">€${c.invested}M</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:3px;">MOIC</div><div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:${c.moic>=2?'var(--green)':c.moic>=1.5?'var(--amber)':'var(--text)'};">${c.moic}×</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:3px;">NAV</div><div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--text);">€${c.nav}M</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:3px;">ARR YoY</div><div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--green);">+${c.arrYoy}%</div></div>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:4px;">Exit Readiness</div>
+      <div class="pbar"><div class="pfill" style="width:${c.exitReady}%;background:${c.exitReady>=70?C.green:c.exitReady>=45?C.amber:C.blue};"></div></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-mid);margin-top:3px;text-align:right;">${c.exitReady}%</div>
+    </div>`).join('');
+
+  // Waterfall
+  destroyChart('waterfallChart');
+  const wCtx = document.getElementById('waterfallChart').getContext('2d');
+  const cos6 = COMPANIES.filter(c=>c.fund==='VI').slice(0,7);
+  charts.waterfallChart = new Chart(wCtx, {
+    type:'bar',
+    data:{labels:cos6.map(c=>c.name.split(' ')[0]),datasets:[
+      {label:'Entry Value',data:cos6.map(c=>c.entryVal),backgroundColor:'rgba(200,168,75,.35)',borderColor:C.amber,borderWidth:1,stack:'s'},
+      {label:'Op. Performance',data:cos6.map(c=>c.opPerf),backgroundColor:'rgba(59,175,114,.4)',borderColor:C.green,borderWidth:1,stack:'s'},
+      {label:'Multiple Re-rating',data:cos6.map(c=>c.reRate),backgroundColor:'rgba(74,143,212,.35)',borderColor:C.blue,borderWidth:1,stack:'s'},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{x:{grid:{color:C.grid},stacked:true},y:{grid:{color:C.grid},stacked:true,ticks:{callback:v=>'€'+v+'M'}}}}
+  });
+}
+
+function renderCoPerformance() {
+  const cos6 = COMPANIES.filter(c=>c.fund==='VI' && c.arr>0);
+  const sel = document.getElementById('perf-co-selector');
+  sel.innerHTML = cos6.map(c=>`<button class="btn ${activePerf===c.name?'btn-primary':'btn-ghost'}" onclick="selectPerfCo('${c.name}')" style="font-size:9px;padding:6px 12px;">${c.name.split(' ')[0]}</button>`).join('');
+
+  const co = cos6.find(c=>c.name===activePerf)||cos6[0];
+  if(!co) return;
+
+  const quarters = ['Q1 22','Q2 22','Q3 22','Q4 22','Q1 23','Q2 23','Q3 23','Q4 23','Q1 24','Q2 24','Q3 24','Q4 24'];
+  const arrBase = co.arr / (1 + co.arrYoy/100);
+  const arrData = quarters.map((_,i)=>+(arrBase * Math.pow(1+co.arrYoy/100/4, i)).toFixed(1));
+  const evData = quarters.map((_,i)=>+(co.ev_arr * (0.7 + i*0.025 + (Math.random()-.5)*0.1)).toFixed(1));
+  const underwriting = arrData.map(v=>+(v*0.82).toFixed(1));
+
+  destroyChart('arrChart');
+  charts.arrChart = new Chart(document.getElementById('arrChart').getContext('2d'), {
+    type:'line',
+    data:{labels:quarters,datasets:[
+      {label:'ARR Actual',data:arrData,borderColor:C.amber,backgroundColor:'rgba(200,168,75,.08)',borderWidth:2,pointRadius:2.5,tension:.4,fill:true},
+      {label:'ARR vs. Underwriting',data:underwriting,borderColor:C.blue,backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,borderDash:[4,3],tension:.4},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  destroyChart('evArrChart');
+  charts.evArrChart = new Chart(document.getElementById('evArrChart').getContext('2d'), {
+    type:'line',
+    data:{labels:quarters,datasets:[
+      {label:'EV/ARR',data:evData,borderColor:C.green,backgroundColor:'rgba(59,175,114,.08)',borderWidth:2,pointRadius:2.5,tension:.4,fill:true},
+      {label:'Sector Median',data:quarters.map(()=>7.2),borderColor:'rgba(255,255,255,.15)',backgroundColor:'transparent',borderWidth:1,borderDash:[3,3],pointRadius:0},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'×'}},x:{grid:{color:C.grid}}}}
+  });
+
+  document.getElementById('perf-kpis').innerHTML = [
+    {label:'Latest ARR', val:`€${co.arr}M`},
+    {label:'ARR YoY%', val:`+${co.arrYoy}%`, cls:'val-up'},
+    {label:'Latest Multiple', val:`${co.ev_arr}×`},
+    {label:'Latest NAV', val:`€${co.nav}M`},
+  ].map(k=>`<div class="card"><div class="card-head"><span class="card-label">${k.label}</span></div><div class="card-body"><div class="kpi-val ${k.cls||''}">${k.val}</div></div></div>`).join('');
+}
+
+function selectPerfCo(name) { activePerf = name; renderCoPerformance(); }
+
+function renderCoExit() {
+  const cos6 = COMPANIES.filter(c=>c.fund==='VI');
+  const co = cos6.find(c=>c.name===exitCo)||cos6[2];
+  const scenarios = { Bear:-0.3, Base:0, Bull:0.25 };
+
+  document.getElementById('exit-controls').innerHTML = `
+    <div class="card"><div class="card-head"><span class="card-label">Company</span></div><div class="card-body" style="padding:10px 14px;">
+      <select onchange="exitCo=this.value;renderCoExit()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:11px;width:100%;">
+        ${cos6.map(c=>`<option value="${c.name}" ${c.name===exitCo?'selected':''}>${c.name}</option>`).join('')}
+      </select>
+    </div></div>
+    <div class="card"><div class="card-head"><span class="card-label">Multiple Shift</span></div><div class="card-body" style="padding:10px 14px;">
+      <input type="range" min="-3" max="3" step="0.5" value="${exitMultShift}" oninput="exitMultShift=+this.value;document.getElementById('ms-val').textContent=(exitMultShift>0?'+':'')+exitMultShift+'×';renderCoExit()" style="width:100%;accent-color:var(--amber);">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);text-align:center;margin-top:4px;" id="ms-val">${exitMultShift>0?'+':''}${exitMultShift}×</div>
+    </div></div>
+    <div class="card"><div class="card-head"><span class="card-label">Scenario</span></div><div class="card-body" style="padding:10px 14px;display:flex;gap:6px;">
+      ${Object.keys(scenarios).map(s=>`<button class="btn ${exitScenario===s?'btn-primary':'btn-ghost'}" onclick="exitScenario='${s}';renderCoExit()" style="font-size:9px;padding:6px 10px;">${s}</button>`).join('')}
+    </div></div>
+    <div class="card"><div class="card-head"><span class="card-label">Exit Date</span></div><div class="card-body" style="padding:10px 14px;">
+      <select style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:11px;width:100%;">
+        <option>2025</option><option>2026</option><option>2027</option>
+      </select>
+    </div></div>`;
+
+  const scenAdj = scenarios[exitScenario];
+  const exitMult = +(co.ev_arr + exitMultShift + co.ev_arr * scenAdj).toFixed(1);
+  const arrExit = +(co.arr * 1.35).toFixed(0);
+  const exitVal = +(exitMult * arrExit).toFixed(0);
+  const exitMoic = +(exitVal / co.invested).toFixed(2);
+  const deltaNAV = +(exitVal - co.nav).toFixed(0);
+
+  document.getElementById('exit-kpis').innerHTML = [
+    {label:'Exit Multiple', val:`${exitMult}×`},
+    {label:'ARR at Exit', val:`€${arrExit}M`},
+    {label:'Exit Value', val:`€${exitVal}M`, cls:exitVal>co.nav?'val-up':'val-dn'},
+    {label:'Invested', val:`€${co.invested}M`},
+    {label:'Exit MOIC', val:`${exitMoic}×`, cls:exitMoic>=2?'val-up':exitMoic>=1.5?'':'val-dn'},
+    {label:'Δ vs. NAV', val:`${deltaNAV>0?'+':''}€${deltaNAV}M`, cls:deltaNAV>0?'val-up':'val-dn'},
+  ].map(k=>`<div class="card"><div class="card-head"><span class="card-label">${k.label}</span></div><div class="card-body"><div class="kpi-val ${k.cls||''}">${k.val}</div></div></div>`).join('');
+
+  // Exit val chart
+  destroyChart('exitValChart');
+  charts.exitValChart = new Chart(document.getElementById('exitValChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:['Bear','Base','Bull'],datasets:[{
+      label:'Exit Value (€M)',
+      data:[
+        +((co.ev_arr+exitMultShift+co.ev_arr*scenarios.Bear)*arrExit).toFixed(0),
+        +((co.ev_arr+exitMultShift+co.ev_arr*scenarios.Base)*arrExit).toFixed(0),
+        +((co.ev_arr+exitMultShift+co.ev_arr*scenarios.Bull)*arrExit).toFixed(0),
+      ],
+      backgroundColor:[C.red+'88',C.amber+'88',C.green+'88'],
+      borderColor:[C.red,C.amber,C.green],
+      borderWidth:1.5,borderRadius:3
+    }]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:C.grid},ticks:{callback:v=>'€'+v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  // Exit MOIC line
+  destroyChart('exitMoicChart');
+  const shifts = [-3,-2,-1,0,1,2,3];
+  charts.exitMoicChart = new Chart(document.getElementById('exitMoicChart').getContext('2d'), {
+    type:'line',
+    data:{labels:shifts.map(s=>(s>0?'+':'')+s+'×'),datasets:[
+      {label:'Bear',data:shifts.map(s=>+((co.ev_arr+s+co.ev_arr*scenarios.Bear)*arrExit/co.invested).toFixed(2)),borderColor:C.red,backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,tension:.3,borderDash:[3,2]},
+      {label:'Base',data:shifts.map(s=>+((co.ev_arr+s+co.ev_arr*scenarios.Base)*arrExit/co.invested).toFixed(2)),borderColor:C.amber,backgroundColor:'rgba(200,168,75,.06)',borderWidth:2,pointRadius:3,tension:.3,fill:true},
+      {label:'Bull',data:shifts.map(s=>+((co.ev_arr+s+co.ev_arr*scenarios.Bull)*arrExit/co.invested).toFixed(2)),borderColor:C.green,backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,tension:.3,borderDash:[3,2]},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'×'}},x:{grid:{color:C.grid}}}}
+  });
+}
+
+// ══════════════════════════════════════════════
+//  INVESTORS
+// ══════════════════════════════════════════════
+let activeLp = 'ALL';
+function initInvestors() {
+  const sel = document.getElementById('lp-selector');
+  sel.innerHTML = ['ALL',...LPS.map(l=>l.name.split(' ')[0])].map((n,i)=>`<button class="btn ${activeLp===n?'btn-primary':'btn-ghost'}" onclick="selectLP('${n}')" style="font-size:9px;padding:6px 12px;">${n==='ALL'?'All LPs':n}</button>`).join('');
+  renderLP();
+}
+
+function selectLP(n) { activeLp=n; initInvestors(); }
+
+function renderLP() {
+  const lps = activeLp==='ALL' ? LPS : LPS.filter(l=>l.name.startsWith(activeLp));
+  const totals = lps.reduce((acc,l)=>({commitment:acc.commitment+l.commitment,paidIn:acc.paidIn+l.paidIn,distributed:acc.distributed+l.distributed,nav:acc.nav+l.nav}),{commitment:0,paidIn:0,distributed:0,nav:0});
+
+  document.getElementById('lp-kpis').innerHTML = [
+    {label:'Total Commitment', val:`€${totals.commitment}M`},
+    {label:'Paid-In Capital', val:`€${totals.paidIn}M`},
+    {label:'Distributions', val:`€${totals.distributed}M`},
+    {label:'Current NAV', val:`€${totals.nav}M`, cls:'val-up'},
+    {label:'DPI (Avg.)', val: (totals.distributed/totals.paidIn).toFixed(2)+'×'},
+    {label:'TVPI (Avg.)', val: ((totals.distributed+totals.nav)/totals.paidIn).toFixed(2)+'×', cls:'val-up'},
+  ].map(k=>`<div class="card"><div class="card-head"><span class="card-label">${k.label}</span></div><div class="card-body"><div class="kpi-val ${k.cls||''}">${k.val}</div></div></div>`).join('');
+
+  destroyChart('lpCashChart');
+  const qtrs = ['Q1 21','Q2 21','Q3 21','Q4 21','Q1 22','Q2 22','Q3 22','Q4 22','Q1 23','Q2 23','Q3 23','Q4 23','Q1 24','Q2 24','Q3 24','Q4 24'];
+  const calls = [18,32,28,22,40,35,28,20,35,28,22,18,28,22,18,12].map(v=>v*lps.length*.6);
+  const dists = [0,0,0,2,0,0,4,8,12,18,22,28,18,22,25,32].map(v=>v*lps.length*.3);
+  charts.lpCashChart = new Chart(document.getElementById('lpCashChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:qtrs,datasets:[
+      {label:'Capital Calls (€M)',data:calls.map(v=>-v),backgroundColor:'rgba(217,86,86,.3)',borderColor:C.red,borderWidth:1},
+      {label:'Distributions (€M)',data:dists,backgroundColor:'rgba(59,175,114,.3)',borderColor:C.green,borderWidth:1},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  // NAV Bridge
+  destroyChart('navBridgeChart');
+  charts.navBridgeChart = new Chart(document.getElementById('navBridgeChart').getContext('2d'), {
+    type:'bar',
+    data:{labels:['Opening NAV','Capital Calls','Valuation Change','Distributions','FX','Closing NAV'],
+      datasets:[{data:[totals.nav*.85, totals.paidIn*.04, totals.nav*.12, -totals.distributed*.1, totals.nav*.01, totals.nav],
+        backgroundColor:['rgba(200,168,75,.4)','rgba(200,168,75,.3)','rgba(59,175,114,.4)','rgba(217,86,86,.3)','rgba(74,143,212,.3)','rgba(200,168,75,.6)'],
+        borderColor:[C.amber,C.amber,C.green,C.red,C.blue,C.amber],borderWidth:1.5,borderRadius:2}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'M'}},x:{grid:{color:C.grid}}}}
+  });
+
+  // LP table
+  document.getElementById('lp-tbl').innerHTML = `
+    <thead><tr><th>Investor</th><th>Type</th><th>Commitment</th><th>Paid-In</th><th>Distributed</th><th>NAV</th><th>DPI</th><th>TVPI</th><th>Net IRR</th><th>Funds</th></tr></thead>
+    <tbody>${lps.map(l=>`<tr><td>${l.name}</td><td><span class="chip chip-soft" style="font-size:8px;">${l.type}</span></td><td>€${l.commitment}M</td><td>€${l.paidIn}M</td><td>€${l.distributed}M</td><td>€${l.nav}M</td><td class="${parseFloat(l.dpi)>=1?'val-up':''}">${l.dpi}</td><td class="val-up">${l.tvpi}</td><td class="val-up">${l.irr}</td><td style="font-size:10px;">${l.funds.map(f=>`<span class="chip chip-deep" style="margin:1px;">${f}</span>`).join('')}</td></tr>`).join('')}</tbody>`;
+}
+
+// ══════════════════════════════════════════════
+//  RESEARCH
+// ══════════════════════════════════════════════
+let resInited = false;
+function initResearch() {
+  if(resInited) return; resInited = true;
+
+  // Filters
+  document.getElementById('research-filters').innerHTML = ['All','Software','Quantum','Dual-Use','EdTech'].map((f,i)=>`<button class="btn ${i===0?'btn-primary':'btn-ghost'}" style="font-size:9px;padding:6px 12px;">${f}</button>`).join('');
+
+  // Alert strip
+  const alerts = [
+    {cls:'warn',txt:'3 companies: EV/ARR moved >20% vs. last valuation'},
+    {cls:'ok',txt:'Fund VI Rule of 40 avg: 48 — above benchmark'},
+    {cls:'info',txt:'Exit window: SaaS M&A multiples up 1.4× QoQ'},
+    {cls:'warn',txt:'Sanity + Headway: approaching follow-on window'},
+    {cls:'ok',txt:'Q-CTRL Series B: largest quantum software round globally'},
+  ];
+  const stripColors = {warn:C.red,ok:C.green,info:C.amber};
+  document.getElementById('alert-strip').innerHTML = alerts.map(a=>`
+    <div style="display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:2px;background:${stripColors[a.cls]}15;border:1px solid ${stripColors[a.cls]}44;color:${stripColors[a.cls]};font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap;flex-shrink:0;">
+      <div style="width:5px;height:5px;border-radius:50%;background:${stripColors[a.cls]};flex-shrink:0;"></div>${a.txt}
+    </div>`).join('');
+
+  // Macro KPIs
+  const macros = [
+    {label:'Risk-Free Rate',val:'4.35%',delta:'↓ 25bps QoQ',cls:'down'},
+    {label:'SaaS EV/ARR Median',val:'7.2×',delta:'↑ 1.4× QoQ',cls:'up'},
+    {label:'EU VC Deal Count',val:'312',delta:'↓ 8% YoY',cls:'down'},
+    {label:'M&A Tech Multiples',val:'9.8×',delta:'↑ 2.1× YoY',cls:'up'},
+    {label:'EUR/USD',val:'1.082',delta:'→ Stable',cls:'neu'},
+    {label:'IPO Window',val:'Open',delta:'↑ Tech +40%',cls:'up'},
+  ];
+  document.getElementById('macro-kpis').innerHTML = macros.map(m=>`<div class="card"><div class="card-head"><span class="card-label">${m.label}</span></div><div class="card-body"><div class="kpi-val">${m.val}</div><div class="kpi-delta ${m.cls}">${m.delta}</div></div></div>`).join('');
+
+  // EV/ARR chart
+  destroyChart('evArrResChart');
+  charts.evArrResChart = new Chart(document.getElementById('evArrResChart').getContext('2d'), {
+    type:'line',
+    data:{labels:['Q1 23','Q2 23','Q3 23','Q4 23','Q1 24','Q2 24','Q3 24','Q4 24'],datasets:[
+      {label:'Portfolio Median',data:[6.2,5.8,5.4,5.9,6.1,6.7,7.0,7.4],borderColor:C.amber,backgroundColor:'rgba(200,168,75,.08)',borderWidth:2,pointRadius:3.5,tension:.4,fill:true},
+      {label:'Public SaaS Median',data:[8.1,7.2,6.8,6.5,6.8,7.0,7.1,7.2],borderColor:C.blue,backgroundColor:'transparent',borderWidth:1.5,pointRadius:2,tension:.4,borderDash:[4,3]},
+      {label:'Top Quartile',data:[13.2,11.8,10.9,10.5,11.0,11.4,11.8,12.1],borderColor:'rgba(74,143,212,.3)',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:.4,borderDash:[2,4]},
+    ]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'top',align:'end',labels:{boxWidth:10,boxHeight:2,padding:12,color:'#5A5650'}}},
+      scales:{y:{grid:{color:C.grid},ticks:{callback:v=>v+'×'},min:4,max:14},x:{grid:{color:C.grid}}}}
+  });
+
+  // AI Narrative
+  setNarrative();
+
+  // Heatmap
+  const sectors = ['Software','Quantum','Dual-Use','EdTech','Fintech'];
+  const qtrs = ['Q1 23','Q2 23','Q3 23','Q4 24'];
+  const hmData = [[38,35,32,42],[48,55,44,68],[55,72,80,100],[28,32,38,48],[18,22,19,24]];
+  const hm = document.getElementById('heatmap-panel');
+  hm.innerHTML = `<div style="display:grid;grid-template-columns:90px repeat(4,1fr);gap:3px;">
+    <div></div>${qtrs.map(q=>`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);text-align:center;padding:0 0 8px;text-transform:uppercase;letter-spacing:.08em;">${q}</div>`).join('')}
+    ${sectors.flatMap((s,si)=>[
+      `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);display:flex;align-items:center;text-transform:uppercase;letter-spacing:.06em;">${s}</div>`,
+      ...qtrs.map((_,qi)=>{
+        const v=hmData[si][qi];
+        const c=v>=55?{bg:'rgba(59,175,114,.28)',col:C.green}:v>=40?{bg:'rgba(59,175,114,.14)',col:C.green}:v>=28?{bg:'rgba(200,168,75,.2)',col:C.amber}:{bg:'rgba(74,143,212,.12)',col:C.blue};
+        return `<div style="height:38px;border-radius:2px;display:flex;align-items:center;justify-content:center;background:${c.bg};color:${c.col};font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;">+${v}%</div>`;
+      })
+    ]).join('')}
+  </div>`;
+
+  // Public comps
+  const comps = [
+    {n:'Veeva Systems',s:'SaaS',ev:'11.2×',arr:'+18%',d:'+1.8×',cls:'val-up'},
+    {n:'HubSpot',s:'SaaS',ev:'9.8×',arr:'+22%',d:'+0.9×',cls:'val-up'},
+    {n:'Adyen',s:'Fintech',ev:'14.1×',arr:'+26%',d:'-0.4×',cls:'val-dn'},
+    {n:'HashiCorp',s:'Infra',ev:'8.3×',arr:'+19%',d:'+1.2×',cls:'val-up'},
+    {n:'Braze',s:'SaaS',ev:'7.6×',arr:'+31%',d:'+2.1×',cls:'val-up'},
+    {n:'Wise',s:'Fintech',ev:'6.9×',arr:'+23%',d:'-0.2×',cls:'val-dn'},
+  ];
+  document.getElementById('comps-tbl').innerHTML = `<thead><tr><th>Company</th><th>Sector</th><th>EV/ARR</th><th>ARR YoY</th><th>Δ QoQ</th></tr></thead>
+    <tbody>${comps.map(c=>`<tr><td>${c.n}</td><td><span class="chip chip-soft" style="font-size:8px;">${c.s}</span></td><td>${c.ev}</td><td class="val-up">${c.arr}</td><td class="${c.cls}">${c.d}</td></tr>`).join('')}</tbody>`;
+
+  // Exit pipeline
+  const pipe = [
+    {n:'ConnexAI',meta:['ARR: €48M','Hold: 4.5yr','MOIC: 2.6×'],r:81,c:C.green},
+    {n:'EcoVadis',meta:['ARR: €95M','Hold: 3.8yr','MOIC: 2.4×'],r:72,c:C.green},
+    {n:'Revolut (IV)',meta:['Hold: 6yr','MOIC: 4.1×'],r:88,c:C.green},
+    {n:'Mentimeter',meta:['ARR: €42M','Hold: 1.4yr','MOIC: 2.1×'],r:68,c:C.amber},
+    {n:'Sesame HR',meta:['ARR: €22M','Hold: 2.2yr','MOIC: 1.9×'],r:58,c:C.amber},
+    {n:'Sanity',meta:['ARR: €31M','Hold: 0.8yr','MOIC: 1.3×'],r:41,c:C.blue},
+  ];
+  document.getElementById('exit-pipeline').innerHTML = pipe.map(p=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.03);">
+      <div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:3px;">${p.n}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);display:flex;gap:8px;">${p.meta.map(m=>`<span>${m}</span>`).join('')}</div>
+      </div>
+      <div style="width:80px;flex-shrink:0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);text-align:right;margin-bottom:3px;">${p.r}%</div>
+        <div class="pbar"><div class="pfill" style="width:${p.r}%;background:${p.c};"></div></div>
+      </div>
+    </div>`).join('').replace(/border-bottom[^;]+;(?=[^>]*>(?:[^<]|<[^/])*<\/div>\s*$)/,'');
+
+  // Alerts feed
+  const alts = [
+    {i:'⚠️',t:'Sanity EV/ARR: 3.5× vs. sector median 7.2×',d:'Series C invested May 2025 · Early stage for re-rating'},
+    {i:'📈',t:'Quantum Systems: 100% YoY revenue growth',d:'ISR/dual-use tailwinds · European defence spending up'},
+    {i:'🔔',t:'Headway + Sanity approaching follow-on window',d:'ARR scaling · GP attention required Q1 2025'},
+    {i:'✅',t:'Q-CTRL: Largest Series B in quantum software history',d:'$113M · GP Bullhound lead · Fund VI anchor position'},
+    {i:'📅',t:'Fund VI Q4 report due in 14 days',d:'Last refresh: 3 days ago · AI narrative: draft ready'},
+    {i:'🌍',t:'EIF sole LP in Fund VI — reporting obligations',d:'LFF2 initiative · Quarterly update required'},
+  ];
+  document.getElementById('alerts-feed').innerHTML = alts.map(a=>`
+    <div style="display:flex;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.03);">
+      <div style="font-size:13px;flex-shrink:0;margin-top:1px;">${a.i}</div>
+      <div>
+        <div style="font-size:12.5px;color:var(--text);margin-bottom:3px;">${a.t}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">${a.d}</div>
+      </div>
+    </div>`).join('');
+}
+
+const narratives = [
+  `Fund VI's portfolio is <strong style="color:var(--text);font-style:normal;">performing ahead of plan</strong> entering Q4 2024. The quantum computing positions — Q-CTRL and Multiverse Computing — represent a concentrated but high-conviction bet on deep tech infrastructure, with combined NAV of <strong style="color:var(--text);font-style:normal;">€430M</strong> against €302M invested. Mentimeter and EcoVadis provide balance: established SaaS businesses with <strong style="color:var(--text);font-style:normal;">clear exit visibility</strong> in the 12–24 month window as M&A multiples recover.`,
+  `The fund's <strong style="color:var(--text);font-style:normal;">exit pipeline has materially strengthened</strong> this quarter. ConnexAI (Fund V) leads at 81% exit readiness, while EcoVadis and Revolut (Fund IV) represent the two most attractive near-term liquidity events. SaaS M&A multiples have recovered to <strong style="color:var(--text);font-style:normal;">9.8× EV/ARR</strong> — a 2.1× improvement year-on-year — providing a favourable backdrop for the 3–4 exits expected over the next 18 months.`,
+  `Portfolio <strong style="color:var(--text);font-style:normal;">risk concentration</strong> remains a monitored factor. Q-CTRL and Multiverse Computing represent 48% of Fund VI NAV, with early-stage monetisation profiles relative to valuation. The EIF as sole LP creates a clearly defined reporting cadence. On balance, the fund's <strong style="color:var(--text);font-style:normal;">TVPI of 1.6× at the 2-year mark</strong> is tracking ahead of vintage-year comparables and in line with Fund V's trajectory at the equivalent stage.`,
+];
+let narIdx = 0;
+function setNarrative() { document.getElementById('ai-narrative').innerHTML = narratives[narIdx]; }
+function regenNarrative() {
+  const el = document.getElementById('ai-narrative');
+  el.style.opacity='0';
+  setTimeout(()=>{ narIdx=(narIdx+1)%narratives.length; setNarrative(); el.style.opacity='1'; },220);
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+initHome();
+</script>
+</body>
+</html>
